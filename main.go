@@ -54,9 +54,9 @@ func (s *Server) handleRawMessage(rawMsg []byte) error {
 		return err
 	}
 
-	switch c := cmd.(type) {
+	switch v := cmd.(type) {
 	case SetCommand:
-		fmt.Println("SetCommand", c.key, c.val)
+		slog.Info("someone wants to set a keyinto the hash table", "key", v.key, "value", v.val)
 	}
 
 	return nil

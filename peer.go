@@ -21,6 +21,7 @@ func (p *Peer) readLoop() error {
 	for {
 		n, err := p.conn.Read(buf)
 		if err != nil {
+			// fmt.Printf("error reading from connection", err)
 			return err
 		}
 		msgBuf := make([]byte, n)
