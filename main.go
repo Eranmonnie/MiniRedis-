@@ -120,15 +120,16 @@ func main() {
 
 	client := client.New("localhost:3000")
 
-	err := client.Set(context.Background(), "leader", "Charlie")
-	if err != nil {
-		log.Fatal(err)
+	for i := 0; i < 10; i++ {
+		err := client.Set(context.Background(), fmt.Sprintf("leader_%d", i), fmt.Sprintf("Charlie_%d", i))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		time.Sleep(2 * time.Second)
+
+		fmt.Println(server.kv.data)
 	}
 
-	time.Sleep(2 * time.Second)
-
-	fmt.Println(server.kv.data)
-
 	select {}
-
 }
