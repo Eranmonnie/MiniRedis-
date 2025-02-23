@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
 	"net"
+	"time"
+
+	"github.com/eranmonnie/go-redis/client"
 )
 
 const defaultListener = ":5001"
@@ -20,6 +24,8 @@ type Server struct {
 	addPeerch chan *Peer
 	quitch    chan struct{}
 	msgch     chan []byte
+
+	kv *KV
 }
 
 func NewServer(cfg Config) *Server {
@@ -32,6 +38,7 @@ func NewServer(cfg Config) *Server {
 		addPeerch: make(chan *Peer),
 		quitch:    make(chan struct{}),
 		msgch:     make(chan []byte),
+		kv:        NewKV(),
 	}
 }
 
@@ -56,7 +63,8 @@ func (s *Server) handleRawMessage(rawMsg []byte) error {
 
 	switch v := cmd.(type) {
 	case SetCommand:
-		slog.Info("someone wants to set a keyinto the hash table", "key", v.key, "value", v.val)
+		slog.Info("someone wants to set a key into the hash table", "key", v.key, "value", v.val)
+		return s.kv.Set(v.key, v.val)
 	}
 
 	return nil
@@ -100,9 +108,27 @@ func (s *Server) handleConn(conn net.Conn) {
 }
 
 func main() {
-
 	server := NewServer(Config{
 		ListenAddress: ":3000",
 	})
-	log.Fatal(server.Start())
+
+	go func() {
+		log.Fatal(server.Start())
+	}()
+
+	time.Sleep(2 * time.Second)
+
+	client := client.New("localhost:3000")
+
+	err := client.Set(context.Background(), "leader", "Charlie")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	fmt.Println(server.kv.data)
+
+	select {}
+
 }
