@@ -1,14 +1,11 @@
 package main
 
 import (
-	"context"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
 	"net"
-	"time"
-
-	"github.com/eranmonnie/go-redis/client"
 )
 
 const defaultListener = ":5001"
@@ -18,7 +15,7 @@ type Config struct {
 }
 
 type Message struct {
-	data []byte
+	cmd  Command
 	peer *Peer
 }
 
@@ -48,7 +45,7 @@ func NewServer(cfg Config) *Server {
 }
 
 func (s *Server) Start() error {
-	slog.Info("server running", "listenAddress", s.ListenAddress)
+	slog.Info("go-redis server running", "listenAddress", s.ListenAddress)
 	ln, err := net.Listen("tcp", s.ListenAddress)
 	if err != nil {
 		return err
@@ -61,27 +58,21 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleMessage(msg Message) error {
-	cmd, err := parseCommand(string(msg.data))
-	if err != nil {
-		return err
-	}
-
-	switch v := cmd.(type) {
+	switch v := msg.cmd.(type) {
 	case SetCommand:
-		slog.Info("someone wants to set a key into the hash table", "key", v.key, "value", v.val)
+		// slog.Info("someone wants to set a key into the hash table", "key", v.key, "value", v.val)
 		return s.kv.Set(v.key, v.val)
 	case GetCommand:
-		slog.Info("someone wants to get a key from the hash table", "key", v.key)
+		// slog.Info("someone wants to get a key from the hash table", "key", v.key)
 		val, ok := s.kv.Get(v.key)
 
 		if !ok {
 			return fmt.Errorf("key not found")
 		}
-		_, err = msg.peer.Send(val)
+		_, err := msg.peer.Send(val)
 		if err != nil {
 			slog.Error("error sending value to peer", "error", err)
 		}
-		return nil
 	}
 
 	return nil
@@ -111,7 +102,6 @@ func (s *Server) acceptLoop() error {
 			continue
 		}
 		go s.handleConn(conn)
-		//  return nil
 	}
 }
 
@@ -125,35 +115,11 @@ func (s *Server) handleConn(conn net.Conn) {
 }
 
 func main() {
+
+	listenAddr := flag.String("listenAddr", defaultListener, "listen address of the go-redis server")
+	flag.Parse()
 	server := NewServer(Config{
-		ListenAddress: ":3000",
+		ListenAddress: *listenAddr,
 	})
-
-	go func() {
-		log.Fatal(server.Start())
-	}()
-
-	time.Sleep(2 * time.Second)
-
-	client, err := client.New("localhost:3000")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for i := 0; i < 10; i++ {
-		err := client.Set(context.Background(), fmt.Sprintf("leader_%d", i), fmt.Sprintf("Charlie_%d", i))
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		time.Sleep(2 * time.Second)
-
-		val, err := client.Get(context.Background(), fmt.Sprintf("leader_%d", i))
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("value is %s \n", string(val))
-	}
-
-	select {}
+	log.Fatal(server.Start())
 }

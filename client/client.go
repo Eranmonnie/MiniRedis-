@@ -35,10 +35,6 @@ func (c *Client) Set(ctx context.Context, key string, val string) error {
 }
 
 func (c *Client) Get(ctx context.Context, key string) (string, error) {
-	// conn, err := net.Dial("tcp", c.addr)
-	// if err != nil {
-	// 	return "", err
-	// }
 
 	var buf bytes.Buffer
 	wr := resp.NewWriter(&buf)
