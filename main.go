@@ -98,8 +98,15 @@ func (s *Server) acceptLoop() error {
 	for {
 		conn, err := s.ln.Accept()
 		if err != nil {
-			fmt.Println(err)
-			continue
+			select {
+			case <-s.quitch:
+				return nil
+			default:
+				fmt.Println(err)
+				continue
+			}
+			// fmt.Println(err)
+			// continue
 		}
 		go s.handleConn(conn)
 	}
