@@ -17,13 +17,18 @@ type Config struct {
 	ListenAddress string
 }
 
+type Message struct {
+	data []byte
+	peer *Peer
+}
+
 type Server struct {
 	Config
 	peers     map[*Peer]bool
 	ln        net.Listener
 	addPeerch chan *Peer
 	quitch    chan struct{}
-	msgch     chan []byte
+	msgch     chan Message
 
 	kv *KV
 }
@@ -37,7 +42,7 @@ func NewServer(cfg Config) *Server {
 		peers:     make(map[*Peer]bool),
 		addPeerch: make(chan *Peer),
 		quitch:    make(chan struct{}),
-		msgch:     make(chan []byte),
+		msgch:     make(chan Message),
 		kv:        NewKV(),
 	}
 }
@@ -55,8 +60,8 @@ func (s *Server) Start() error {
 	return s.acceptLoop()
 }
 
-func (s *Server) handleRawMessage(rawMsg []byte) error {
-	cmd, err := parseCommand(string(rawMsg))
+func (s *Server) handleMessage(msg Message) error {
+	cmd, err := parseCommand(string(msg.data))
 	if err != nil {
 		return err
 	}
@@ -65,6 +70,18 @@ func (s *Server) handleRawMessage(rawMsg []byte) error {
 	case SetCommand:
 		slog.Info("someone wants to set a key into the hash table", "key", v.key, "value", v.val)
 		return s.kv.Set(v.key, v.val)
+	case GetCommand:
+		slog.Info("someone wants to get a key from the hash table", "key", v.key)
+		val, ok := s.kv.Get(v.key)
+
+		if !ok {
+			return fmt.Errorf("key not found")
+		}
+		_, err = msg.peer.Send(val)
+		if err != nil {
+			slog.Error("error sending value to peer", "error", err)
+		}
+		return nil
 	}
 
 	return nil
@@ -73,8 +90,8 @@ func (s *Server) handleRawMessage(rawMsg []byte) error {
 func (s *Server) loop() {
 	for {
 		select {
-		case rawMsg := <-s.msgch:
-			if err := s.handleRawMessage(rawMsg); err != nil {
+		case msg := <-s.msgch:
+			if err := s.handleMessage(msg); err != nil {
 				slog.Error("handle raw message error", "error", err)
 			}
 		case <-s.quitch:
@@ -118,7 +135,10 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
-	client := client.New("localhost:3000")
+	client, err := client.New("localhost:3000")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for i := 0; i < 10; i++ {
 		err := client.Set(context.Background(), fmt.Sprintf("leader_%d", i), fmt.Sprintf("Charlie_%d", i))
@@ -128,7 +148,11 @@ func main() {
 
 		time.Sleep(2 * time.Second)
 
-		fmt.Println(server.kv.data)
+		val, err := client.Get(context.Background(), fmt.Sprintf("leader_%d", i))
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("value is %s \n", string(val))
 	}
 
 	select {}
