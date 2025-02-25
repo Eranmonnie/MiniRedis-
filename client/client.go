@@ -53,3 +53,7 @@ func (c *Client) Get(ctx context.Context, key string) (string, error) {
 
 	return string(b[:n]), nil
 }
+
+func (c *Client) Close() error {
+	return c.conn.Close()
+}

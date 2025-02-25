@@ -89,6 +89,7 @@ func (s *Server) loop() {
 			return
 
 		case p := <-s.addPeerch:
+			slog.Info("new peer added", "remoteAddress", p.conn.RemoteAddr())
 			s.peers[p] = true
 		}
 	}
@@ -105,8 +106,6 @@ func (s *Server) acceptLoop() error {
 				fmt.Println(err)
 				continue
 			}
-			// fmt.Println(err)
-			// continue
 		}
 		go s.handleConn(conn)
 	}
@@ -119,6 +118,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	if err := p.readLoop(); err != nil {
 		slog.Error("peer read error", "error", err, "remoteAddress", conn.RemoteAddr())
 	}
+
 }
 
 func main() {
