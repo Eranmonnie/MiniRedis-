@@ -7,6 +7,26 @@ import (
 	"testing"
 )
 
+func TestNewClient1(t *testing.T) {
+	client, err := New("localhost:8080")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+
+	err = client.Set(context.Background(), "foo", 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	val, err := client.Get(context.Background(), "foo")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("value is %s \n", string(val))
+
+}
+
 func TestNewCient(t *testing.T) {
 
 	client, err := New("localhost:8080")

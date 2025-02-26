@@ -65,6 +65,26 @@ func (p *Peer) readLoop() error {
 						cmd:  cmd,
 					}
 
+				case commandHello:
+					cmd := HelloCommand{
+						val: v.Array()[1].String(),
+					}
+					p.msgch <- Message{
+						peer: p,
+						cmd:  cmd,
+					}
+				case commandClient:
+					cmd := ClientCommand{
+						val: v.Array()[1].String(),
+					}
+					p.msgch <- Message{
+						peer: p,
+						cmd:  cmd,
+					}
+
+				default:
+					panic("this command has not been implemented")
+
 				}
 			}
 		}

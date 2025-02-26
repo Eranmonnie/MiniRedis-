@@ -1,8 +1,17 @@
 package main
 
+import (
+	"bytes"
+	"fmt"
+
+	"github.com/tidwall/resp"
+)
+
 const (
-	commandSet = "set"
-	commandGet = "get"
+	commandSet    = "set"
+	commandGet    = "get"
+	commandHello  = "hello"
+	commandClient = "client"
 )
 
 type Command interface {
@@ -12,8 +21,26 @@ type SetCommand struct {
 	key, val []byte
 }
 
+type ClientCommand struct {
+	val string
+}
+
+type HelloCommand struct {
+	val string
+}
 type GetCommand struct {
 	key []byte
+}
+
+func respWriteMap(m map[string]string) []byte {
+	buf := &bytes.Buffer{}
+	buf.WriteString("%" + fmt.Sprintf("%d\r\n", len(m)))
+	rw := resp.NewWriter(buf)
+	for k, v := range m {
+		rw.WriteString(k)
+		rw.WriteString(":" + v)
+	}
+	return buf.Bytes()
 }
 
 // func parseCommand(raw string) (Command, error) {
@@ -49,6 +76,11 @@ type GetCommand struct {
 // 					}
 // 					return cmd, nil
 
+// 				case commandHello:
+// 					cmd := HelloCommand{
+// 						val: v.Array()[1].String(),
+// 					}
+// 					return cmd, nil
 // 				}
 // 			}
 // 		}

@@ -6,6 +6,8 @@ import (
 	"log"
 	"log/slog"
 	"net"
+
+	"github.com/tidwall/resp"
 )
 
 const defaultListener = ":5001"
@@ -62,19 +64,41 @@ func (s *Server) Start() error {
 func (s *Server) handleMessage(msg Message) error {
 	switch v := msg.cmd.(type) {
 	case SetCommand:
-		// slog.Info("someone wants to set a key into the hash table", "key", v.key, "value", v.val)
-		return s.kv.Set(v.key, v.val)
-	case GetCommand:
-		// slog.Info("someone wants to get a key from the hash table", "key", v.key)
-		val, ok := s.kv.Get(v.key)
+		if err := s.kv.Set(v.key, v.val); err != nil {
+			return err
+		}
+		if err := resp.
+			NewWriter(msg.peer.conn).
+			WriteString("OK"); err != nil {
+			return err
+		}
 
+	case GetCommand:
+		val, ok := s.kv.Get(v.key)
 		if !ok {
 			return fmt.Errorf("key not found")
 		}
-		_, err := msg.peer.Send(val)
-		if err != nil {
-			slog.Error("error sending value to peer", "error", err)
+		if err := resp.
+			NewWriter(msg.peer.conn).
+			WriteString(string(val)); err != nil {
+			return err
 		}
+	case HelloCommand:
+		spec := map[string]string{
+			"server": "redis",
+		}
+		_, err := msg.peer.Send(respWriteMap(spec))
+		if err != nil {
+			return fmt.Errorf("peer send error: %s", err)
+		}
+
+	case ClientCommand:
+		if err := resp.
+			NewWriter(msg.peer.conn).
+			WriteString("OK"); err != nil {
+			return err
+		}
+
 	}
 
 	return nil
